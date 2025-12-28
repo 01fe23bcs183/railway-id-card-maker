@@ -111,6 +111,21 @@ namespace RailwayIDCardMaker.Forms
             _currentEmployee = employee;
             _isNewEmployee = false;
 
+            // DEBUG: Show what data was loaded from database
+            System.Diagnostics.Debug.WriteLine($"=== LOADING EMPLOYEE ===");
+            System.Diagnostics.Debug.WriteLine($"ID: {employee.Id}");
+            System.Diagnostics.Debug.WriteLine($"Name: '{employee.Name}'");
+            System.Diagnostics.Debug.WriteLine($"FatherName: '{employee.FatherName}'");
+            System.Diagnostics.Debug.WriteLine($"BloodGroup: '{employee.BloodGroup}'");
+            System.Diagnostics.Debug.WriteLine($"Gender: '{employee.Gender}'");
+            System.Diagnostics.Debug.WriteLine($"Address: '{employee.Address}'");
+            System.Diagnostics.Debug.WriteLine($"Mobile: '{employee.MobileNumber}'");
+            System.Diagnostics.Debug.WriteLine($"Aadhaar: '{employee.AadhaarNumber}'");
+            System.Diagnostics.Debug.WriteLine($"Designation: '{employee.Designation}'");
+            System.Diagnostics.Debug.WriteLine($"Department: '{employee.Department}'");
+            System.Diagnostics.Debug.WriteLine($"PlaceOfPosting: '{employee.PlaceOfPosting}'");
+            System.Diagnostics.Debug.WriteLine($"========================");
+
             // Clear form first to reset all fields
             ClearForm();
 
@@ -166,7 +181,7 @@ namespace RailwayIDCardMaker.Forms
                 txtName.Text = _currentEmployee.Name ?? "";
                 txtFatherName.Text = _currentEmployee.FatherName ?? "";
 
-                if (_currentEmployee.DateOfBirth.HasValue && _currentEmployee.DateOfBirth.Value > dtpDateOfBirth.MinDate && _currentEmployee.DateOfBirth.Value <= dtpDateOfBirth.MaxDate)
+                if (_currentEmployee.DateOfBirth.HasValue && _currentEmployee.DateOfBirth.Value > DateTime.MinValue)
                     dtpDateOfBirth.Value = _currentEmployee.DateOfBirth.Value;
 
                 // For comboboxes, set Text directly
@@ -203,17 +218,14 @@ namespace RailwayIDCardMaker.Forms
                 txtUnit.Text = _currentEmployee.UnitCode ?? "";
                 txtPFNumber.Text = _currentEmployee.PFNumber ?? "";
 
-                // Dates - safely set check bounds
-                if (_currentEmployee.DateOfJoining.HasValue && _currentEmployee.DateOfJoining.Value > dtpDateOfJoining.MinDate)
+                // Dates
+                if (_currentEmployee.DateOfJoining.HasValue && _currentEmployee.DateOfJoining.Value > DateTime.MinValue)
                     dtpDateOfJoining.Value = _currentEmployee.DateOfJoining.Value;
-
-                if (_currentEmployee.DateOfRetirement.HasValue && _currentEmployee.DateOfRetirement.Value > dtpDateOfRetirement.MinDate)
+                if (_currentEmployee.DateOfRetirement.HasValue && _currentEmployee.DateOfRetirement.Value > DateTime.MinValue)
                     dtpDateOfRetirement.Value = _currentEmployee.DateOfRetirement.Value;
-
-                if (_currentEmployee.DateOfIssue.HasValue && _currentEmployee.DateOfIssue.Value > dtpDateOfIssue.MinDate)
+                if (_currentEmployee.DateOfIssue.HasValue && _currentEmployee.DateOfIssue.Value > DateTime.MinValue)
                     dtpDateOfIssue.Value = _currentEmployee.DateOfIssue.Value;
-
-                if (_currentEmployee.ValidityDate.HasValue && _currentEmployee.ValidityDate.Value > dtpValidityDate.MinDate)
+                if (_currentEmployee.ValidityDate.HasValue && _currentEmployee.ValidityDate.Value > DateTime.MinValue)
                     dtpValidityDate.Value = _currentEmployee.ValidityDate.Value;
 
                 // ID Card Information
@@ -225,18 +237,14 @@ namespace RailwayIDCardMaker.Forms
                 // Load photo
                 if (!string.IsNullOrEmpty(_currentEmployee.PhotoPath) && File.Exists(_currentEmployee.PhotoPath))
                 {
-                    try { picPhoto.Image = ImageService.LoadImage(_currentEmployee.PhotoPath); } catch { }
+                    picPhoto.Image = ImageService.LoadImage(_currentEmployee.PhotoPath);
                 }
 
                 // Load signature
                 if (!string.IsNullOrEmpty(_currentEmployee.SignaturePath) && File.Exists(_currentEmployee.SignaturePath))
                 {
-                    try { picSignature.Image = ImageService.LoadImage(_currentEmployee.SignaturePath); } catch { }
+                    picSignature.Image = ImageService.LoadImage(_currentEmployee.SignaturePath);
                 }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error displaying data: {ex.Message}", "Data Load Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {

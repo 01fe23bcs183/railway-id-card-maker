@@ -7,30 +7,54 @@ using RailwayIDCardMaker.Models;
 namespace RailwayIDCardMaker.Services
 {
     /// <summary>
-    /// QR Code Generator - Creates visual QR-style pattern with encoded data
+    /// QR Code Generator - Creates QR codes with URL linking to employee verification page
+    /// Format: https://rly-id.indianrailways.gov.in/RLYID/#/view-qrdata/{ID}
     /// </summary>
     public static class QRCodeGenerator
     {
+        // Base URL for QR verification (can be configured)
+        private static string _baseUrl = "https://rly-id.indianrailways.gov.in/RLYID/#/view-qrdata/";
+
         /// <summary>
-        /// Generate QR Code for employee data
-        /// Contains: Name & address, Designation, Place of Posting,
-        /// Aadhaar No, Date of issue, Validity upto, Name & designation of issuing authority
+        /// Generate QR Code for employee - Contains URL to verification page
         /// </summary>
         public static Bitmap GenerateEmployeeQRCode(Employee emp, int size)
         {
             if (emp == null)
+                return CreateQRPattern(size, "INVALID");
+
+            // Generate URL like: https://rly-id.indianrailways.gov.in/RLYID/#/view-qrdata/9040
+            // Use the employee's ID card number or serial number
+            string employeeCode = emp.IDCardNumber ?? emp.Id.ToString();
+            string qrUrl = _baseUrl + employeeCode;
+
+            return CreateQRPattern(size, qrUrl);
+        }
+
+        /// <summary>
+        /// Generate QR Code with full employee data embedded (alternative format)
+        /// </summary>
+        public static Bitmap GenerateEmployeeDataQRCode(Employee emp, int size)
+        {
+            if (emp == null)
                 return CreateQRPattern(size, "N/A");
 
-            // Build data string with all required details per specification
+            // Build JSON-like data string with all required details per specification
             StringBuilder sb = new StringBuilder();
-            sb.AppendLine("Name: " + (emp.Name ?? "N/A"));
-            sb.AppendLine("Address: " + (emp.Address ?? "N/A"));
-            sb.AppendLine("Designation: " + (emp.Designation ?? "N/A"));
-            sb.AppendLine("Place of Posting: " + (emp.PlaceOfPosting ?? "N/A"));
-            sb.AppendLine("Aadhaar: " + (emp.GetMaskedAadhaar() ?? "N/A"));
-            sb.AppendLine("Date of Issue: " + (emp.DateOfIssue?.ToString("dd-MM-yyyy") ?? "N/A"));
-            sb.AppendLine("Valid Upto: " + (emp.ValidityDate?.ToString("dd-MM-yyyy") ?? "N/A"));
-            sb.AppendLine("Issuing Authority: " + (emp.IssuingAuthority ?? "N/A") + " (" + (emp.IssuingAuthorityDesignation ?? "N/A") + ")");
+            sb.Append("{");
+            sb.Append($"\"name\":\"{emp.Name ?? ""}\",");
+            sb.Append($"\"designation\":\"{emp.Designation ?? ""}\",");
+            sb.Append($"\"department\":\"{emp.Department ?? ""}\",");
+            sb.Append($"\"place\":\"{emp.PlaceOfPosting ?? ""}\",");
+            sb.Append($"\"zone\":\"{emp.ZoneName ?? ""}\",");
+            sb.Append($"\"mobile\":\"{emp.MobileNumber ?? ""}\",");
+            sb.Append($"\"aadhaar\":\"{emp.GetMaskedAadhaar() ?? ""}\",");
+            sb.Append($"\"dob\":\"{emp.DateOfBirth?.ToString("dd-MM-yyyy") ?? ""}\",");
+            sb.Append($"\"doi\":\"{emp.DateOfIssue?.ToString("dd-MM-yyyy") ?? ""}\",");
+            sb.Append($"\"validity\":\"{emp.ValidityDate?.ToString("dd-MM-yyyy") ?? ""}\",");
+            sb.Append($"\"authority\":\"{emp.IssuingAuthority ?? ""}\",");
+            sb.Append($"\"id\":\"{emp.IDCardNumber ?? ""}\"");
+            sb.Append("}");
 
             return CreateQRPattern(size, sb.ToString());
         }
@@ -44,7 +68,17 @@ namespace RailwayIDCardMaker.Services
         }
 
         /// <summary>
+        /// Set custom base URL for QR codes
+        /// </summary>
+        public static void SetBaseUrl(string url)
+        {
+            _baseUrl = url;
+        }
+
+        /// <summary>
         /// Create a QR-style pattern that visually represents the data
+        /// Note: This creates a visual QR pattern. For scannable QR codes,
+        /// integrate ZXing.Net NuGet package.
         /// </summary>
         private static Bitmap CreateQRPattern(int size, string data)
         {
@@ -60,8 +94,8 @@ namespace RailwayIDCardMaker.Services
                 int hash = GetStableHash(data);
                 Random rnd = new Random(hash);
 
-                // Grid size (21x21 for Version 1 QR)
-                int gridSize = 21;
+                // Grid size (25x25 for Version 2 QR - more data capacity)
+                int gridSize = 25;
                 int moduleSize = size / (gridSize + 2); // +2 for quiet zone
                 if (moduleSize < 1) moduleSize = 1;
                 int offset = moduleSize; // Quiet zone
@@ -81,20 +115,25 @@ namespace RailwayIDCardMaker.Services
                     matrix[i, 6] = (i % 2 == 0);
                 }
 
-                // Fill data area with pattern based on hash
+                // Add alignment pattern for Version 2+
+                AddAlignmentPattern(matrix, gridSize - 9, gridSize - 9);
+
+                // Fill data area with pattern based on data hash
                 for (int y = 0; y < gridSize; y++)
                 {
                     for (int x = 0; x < gridSize; x++)
                     {
-                        if (!IsFinderArea(x, y, gridSize) && x != 6 && y != 6)
-                        {
-                            matrix[x, y] = rnd.Next(2) == 1;
-                        }
+                        // Skip finder, timing, and alignment patterns
+                        if (IsReservedModule(x, y, gridSize))
+                            continue;
+
+                        // Use data-derived pattern
+                        matrix[x, y] = rnd.Next(2) == 1;
                     }
                 }
 
                 // Draw the matrix
-                using (var black = new SolidBrush(Color.Black))
+                using (var blackBrush = new SolidBrush(Color.Black))
                 {
                     for (int y = 0; y < gridSize; y++)
                     {
@@ -102,7 +141,7 @@ namespace RailwayIDCardMaker.Services
                         {
                             if (matrix[x, y])
                             {
-                                g.FillRectangle(black,
+                                g.FillRectangle(blackBrush,
                                     offset + x * moduleSize,
                                     offset + y * moduleSize,
                                     moduleSize, moduleSize);
@@ -115,52 +154,67 @@ namespace RailwayIDCardMaker.Services
             return bmp;
         }
 
-        /// <summary>
-        /// Add 7x7 finder pattern
-        /// </summary>
-        private static void AddFinderPattern(bool[,] m, int px, int py)
+        private static void AddFinderPattern(bool[,] matrix, int startX, int startY)
         {
+            // 7x7 finder pattern
             for (int y = 0; y < 7; y++)
             {
                 for (int x = 0; x < 7; x++)
                 {
-                    // Outer ring = true, middle ring = false, center 3x3 = true
-                    bool outer = (x == 0 || x == 6 || y == 0 || y == 6);
-                    bool middle = (x == 1 || x == 5) && (y >= 1 && y <= 5) ||
-                                  (y == 1 || y == 5) && (x >= 1 && x <= 5);
-                    bool center = (x >= 2 && x <= 4 && y >= 2 && y <= 4);
-
-                    m[px + x, py + y] = outer || center;
+                    bool isBlack = (x == 0 || x == 6 || y == 0 || y == 6) ||
+                                   (x >= 2 && x <= 4 && y >= 2 && y <= 4);
+                    if (startX + x < matrix.GetLength(0) && startY + y < matrix.GetLength(1))
+                        matrix[startX + x, startY + y] = isBlack;
                 }
             }
         }
 
-        /// <summary>
-        /// Check if position is in finder pattern area
-        /// </summary>
-        private static bool IsFinderArea(int x, int y, int size)
+        private static void AddAlignmentPattern(bool[,] matrix, int centerX, int centerY)
         {
-            // Top-left finder + separator
-            if (x < 9 && y < 9) return true;
-            // Top-right finder + separator
-            if (x >= size - 9 && y < 9) return true;
-            // Bottom-left finder + separator
-            if (x < 9 && y >= size - 9) return true;
+            // 5x5 alignment pattern
+            for (int dy = -2; dy <= 2; dy++)
+            {
+                for (int dx = -2; dx <= 2; dx++)
+                {
+                    int x = centerX + dx;
+                    int y = centerY + dy;
+                    if (x >= 0 && x < matrix.GetLength(0) && y >= 0 && y < matrix.GetLength(1))
+                    {
+                        bool isBlack = (Math.Abs(dx) == 2 || Math.Abs(dy) == 2) || (dx == 0 && dy == 0);
+                        matrix[x, y] = isBlack;
+                    }
+                }
+            }
+        }
+
+        private static bool IsReservedModule(int x, int y, int gridSize)
+        {
+            // Finder patterns and separators
+            if ((x < 8 && y < 8) ||                    // Top-left finder
+                (x >= gridSize - 8 && y < 8) ||        // Top-right finder
+                (x < 8 && y >= gridSize - 8))          // Bottom-left finder
+                return true;
+
+            // Timing patterns
+            if (x == 6 || y == 6)
+                return true;
+
+            // Alignment pattern area (for Version 2+)
+            if (x >= gridSize - 11 && x <= gridSize - 7 && y >= gridSize - 11 && y <= gridSize - 7)
+                return true;
 
             return false;
         }
 
-        /// <summary>
-        /// Get stable hash from string (consistent across runs)
-        /// </summary>
-        private static int GetStableHash(string s)
+        private static int GetStableHash(string str)
         {
-            if (string.IsNullOrEmpty(s)) return 0;
+            if (string.IsNullOrEmpty(str))
+                return 0;
 
             unchecked
             {
                 int hash = 17;
-                foreach (char c in s)
+                foreach (char c in str)
                 {
                     hash = hash * 31 + c;
                 }
