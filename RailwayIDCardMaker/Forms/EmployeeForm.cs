@@ -17,6 +17,8 @@ namespace RailwayIDCardMaker.Forms
         private Image _logoImage = null;
         private bool _isNewEmployee = true;
         private PrintService _printService;
+        private Employee _pendingEmployee = null; // Employee to load after form is ready
+        private bool _isFormLoaded = false;
 
         public event EventHandler<Employee> EmployeeSaved;
 
@@ -29,7 +31,18 @@ namespace RailwayIDCardMaker.Forms
         private void EmployeeForm_Load(object sender, EventArgs e)
         {
             LoadComboBoxes();
-            NewEmployee();
+            _isFormLoaded = true;
+            
+            // If there's a pending employee to load, load it now
+            if (_pendingEmployee != null)
+            {
+                LoadEmployeeInternal(_pendingEmployee);
+                _pendingEmployee = null;
+            }
+            else
+            {
+                NewEmployee();
+            }
         }
 
         #region Data Loading
@@ -82,6 +95,18 @@ namespace RailwayIDCardMaker.Forms
         }
 
         public void LoadEmployee(Employee employee)
+        {
+            if (!_isFormLoaded)
+            {
+                // Form not yet loaded, store the employee to load after form is ready
+                _pendingEmployee = employee;
+                return;
+            }
+            
+            LoadEmployeeInternal(employee);
+        }
+        
+        private void LoadEmployeeInternal(Employee employee)
         {
             _currentEmployee = employee;
             _isNewEmployee = false;
