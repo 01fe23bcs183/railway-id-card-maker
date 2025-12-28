@@ -89,12 +89,27 @@ namespace RailwayIDCardMaker.Services
             _logoImage = logoImage;
             _currentPage = 0;
 
+            // Ensure paper size is set before preview
+            SetIDCardPaperSize();
+
             using (PrintPreviewDialog preview = new PrintPreviewDialog())
             {
                 preview.Document = _printDocument;
-                preview.Width = 800;
-                preview.Height = 600;
+                preview.Width = 600;
+                preview.Height = 800;
                 preview.ShowIcon = false;
+                
+                // Set zoom to show actual size (100%)
+                // The PrintPreviewControl is accessed through the Controls collection
+                foreach (Control ctrl in preview.Controls)
+                {
+                    if (ctrl is PrintPreviewControl previewCtrl)
+                    {
+                        previewCtrl.Zoom = 1.0; // 100% zoom for actual size
+                        previewCtrl.AutoZoom = false;
+                        break;
+                    }
+                }
 
                 return preview.ShowDialog();
             }
