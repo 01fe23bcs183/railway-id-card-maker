@@ -22,94 +22,105 @@ namespace RailwayIDCardMaker.Services
 
             using (var g = Graphics.FromImage(bmp))
             {
-                // Set page unit to pixel for consistent rendering at 300 DPI
-                g.PageUnit = GraphicsUnit.Pixel;
                 SetQuality(g);
                 g.Clear(YELLOW);
-                g.DrawRectangle(new Pen(Color.Black, 3), 2, 2, W - 5, H - 5);
+                g.DrawRectangle(new Pen(Color.Black, 2), 1, 1, W - 3, H - 3);
 
                 var sfCenter = new StringFormat { Alignment = StringAlignment.Center };
+                var sfTrim = new StringFormat { Alignment = StringAlignment.Near, Trimming = StringTrimming.EllipsisCharacter };
+                var sfCenterTrim = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisCharacter };
 
-                // === HEADER (Y = 15-100) ===
-                // Logo on left, text on right
-                DrawAshokChakra(g, 15, 15, 80);
-                using (var f = new Font("Times New Roman", 28, FontStyle.Bold))
-                    g.DrawString("Ministry of Railways", f, new SolidBrush(RED), 100, 18);
-                using (var f = new Font("Times New Roman", 18))
+                // === HEADER (Y = 15-90) - Font 12 & 8 per spec ===
+                int logoSize = 70;
+                DrawAshokChakra(g, 15, 15, logoSize);
+                using (var f = new Font("Times New Roman", 12, FontStyle.Bold))
+                    g.DrawString("Ministry of Railways", f, new SolidBrush(RED), logoSize + 25, 18);
+                using (var f = new Font("Times New Roman", 8))
                 {
-                    g.DrawString("Government of India", f, Brushes.Black, 100, 52);
-                    g.DrawString("No " + (emp.IDCardNumber ?? "XXXXXX"), f, Brushes.Black, 100, 78);
+                    g.DrawString("Government of India", f, Brushes.Black, logoSize + 25, 40);
+                    g.DrawString("No." + (emp.IDCardNumber ?? "251001XXXXXX"), f, Brushes.Black, logoSize + 25, 58);
                 }
 
-                // === TITLE (Y = 115) ===
-                using (var f = new Font("Times New Roman", 24, FontStyle.Bold))
-                    g.DrawString("Employee Identity Card", f, new SolidBrush(RED), W / 2, 115, sfCenter);
-
-                // === PHOTO (Y = 160 to 660) ===
-                // Photo size: 3.85cm x 4.35cm = 455 x 514 pixels at 300 DPI
-                int pY = 165, pW = 380, pH = 450;
+                // === PHOTO AREA - Spec: centered, with "Employee Photo" label ===
+                // Photo box: approximately 3.85cm x 5.8cm = 455 x 685 pixels at 300 DPI
+                // But we need to fit within card, so scale proportionally
+                int pW = 400, pH = 500;
                 int pX = (W - pW) / 2;
-                using (var path = CreateRoundedRect(pX, pY, pW, pH, 12))
+                int pY = 100;
+                using (var path = CreateRoundedRect(pX, pY, pW, pH, 8))
                 {
                     g.FillPath(Brushes.White, path);
-                    g.DrawPath(new Pen(Color.Gray, 2), path);
+                    g.DrawPath(new Pen(Color.Gray, 1), path);
                 }
                 if (!string.IsNullOrEmpty(emp.PhotoPath))
                 {
                     var img = ImageService.LoadImage(emp.PhotoPath);
                     if (img != null)
                     {
-                        using (var clip = CreateRoundedRect(pX + 3, pY + 3, pW - 6, pH - 6, 10))
+                        using (var clip = CreateRoundedRect(pX + 2, pY + 2, pW - 4, pH - 4, 6))
                         {
                             g.SetClip(clip);
-                            g.DrawImage(img, pX + 3, pY + 3, pW - 6, pH - 6);
+                            g.DrawImage(img, pX + 2, pY + 2, pW - 4, pH - 4);
                             g.ResetClip();
                         }
                         img.Dispose();
                     }
                 }
+                else
+                {
+                    using (var f = new Font("Times New Roman", 10))
+                        g.DrawString("Employee Photo", f, Brushes.Gray, new RectangleF(pX, pY, pW, pH), sfCenterTrim);
+                }
 
-                // Validity (vertical, left of photo)
+                // Validity (vertical, left of photo) - Font 8
                 if (emp.ValidityDate.HasValue)
-                    DrawVerticalText(g, "Valid Upto: " + emp.ValidityDate.Value.ToString("dd-MM-yyyy"), pX - 15, pY + pH - 20, 12);
+                    DrawVerticalText(g, "Valid Upto: " + emp.ValidityDate.Value.ToString("dd/MM/yyyy"), pX - 18, pY + pH - 20, 8);
 
-                // === SIGNATURE BOX (Y = 630-690) ===
-                // Signature box: 4.2cm wide = 496 pixels at 300 DPI
-                int sY = 635, sW = 380, sH = 50;
+                // Employee photo label on right side (vertical) - Font 8
+                DrawVerticalText(g, "um 5.8 P", pX + pW + 5, pY + pH / 2, 6);
+
+                // === SIGNATURE BOX - Spec: 4.2cm wide = 496 pixels, 0.75cm tall = 89 pixels ===
+                int sW = 496, sH = 70;
                 int sX = (W - sW) / 2;
+                int sY = pY + pH + 15;
                 g.FillRectangle(Brushes.White, sX, sY, sW, sH);
-                g.DrawRectangle(new Pen(Color.Gray, 2), sX, sY, sW, sH);
+                g.DrawRectangle(new Pen(Color.Gray, 1), sX, sY, sW, sH);
                 if (!string.IsNullOrEmpty(emp.SignaturePath))
                 {
                     var sig = ImageService.LoadImage(emp.SignaturePath);
                     if (sig != null) { g.DrawImage(sig, sX + 5, sY + 3, sW - 10, sH - 6); sig.Dispose(); }
                 }
 
-                // === SIGNATURE LABEL (Y = 695) ===
-                using (var f = new Font("Times New Roman", 14))
-                    g.DrawString("Signature of Card Holder", f, Brushes.Black, W / 2, 695, sfCenter);
+                // === SIGNATURE LABEL - Font 9 ===
+                using (var f = new Font("Times New Roman", 9))
+                    g.DrawString("Signature of card Holder", f, Brushes.Black, W / 2, sY + sH + 5, sfCenter);
 
-                // === NAME (Y = 740) ===
-                using (var f = new Font("Times New Roman", 26, FontStyle.Bold))
-                    g.DrawString("Name : " + (emp.Name ?? "XXXXX").ToUpper(), f, Brushes.Black, 20, 740);
+                // === NAME - Font 12 Bold ===
+                int nameY = sY + sH + 30;
+                string nameText = "Name : " + (emp.Name ?? "XXXXX").ToUpper();
+                using (var f = new Font("Times New Roman", 12, FontStyle.Bold))
+                    g.DrawString(nameText, f, Brushes.Black, new RectangleF(15, nameY, W - 30, 25), sfTrim);
 
-                // === DESIGNATION (Y = 790) ===
-                using (var f = new Font("Times New Roman", 20))
-                    g.DrawString("Designation: " + (emp.Designation ?? "XXXXX"), f, Brushes.Black, 20, 790);
+                // === DESIGNATION - Font 9 ===
+                int desigY = nameY + 28;
+                string desigText = "Designation: " + (emp.Designation ?? "XXXXX/DDDD");
+                using (var f = new Font("Times New Roman", 9))
+                    g.DrawString(desigText, f, Brushes.Black, new RectangleF(15, desigY, W / 2, 22), sfTrim);
 
-                // === AUTHORITY (right side, Y = 840-1000) ===
+                // === AUTHORITY SIGNATURE (right side) ===
                 int ax = W - 180;
-                g.FillRectangle(Brushes.White, ax, 850, 160, 40);
-                g.DrawRectangle(new Pen(Color.Black, 2), ax, 850, 160, 40);
+                int ay = desigY - 10;
+                g.FillRectangle(Brushes.White, ax, ay, 160, 35);
+                g.DrawRectangle(new Pen(Color.Black, 1), ax, ay, 160, 35);
                 if (!string.IsNullOrEmpty(emp.AuthoritySignaturePath))
                 {
                     var authSig = ImageService.LoadImage(emp.AuthoritySignaturePath);
-                    if (authSig != null) { g.DrawImage(authSig, ax + 5, 853, 150, 34); authSig.Dispose(); }
+                    if (authSig != null) { g.DrawImage(authSig, ax + 3, ay + 2, 154, 31); authSig.Dispose(); }
                 }
-                using (var f = new Font("Times New Roman", 12))
+                using (var f = new Font("Times New Roman", 7))
                 {
-                    g.DrawString("(Signature)", f, Brushes.Black, ax + 45, 895);
-                    g.DrawString("Issuing Authority", f, Brushes.Black, ax + 30, 915);
+                    g.DrawString("(Signature)", f, Brushes.Black, ax + 50, ay + 38);
+                    g.DrawString("Designation of Issuing Authority", f, Brushes.Black, ax + 10, ay + 52);
                 }
             }
             return bmp;
@@ -122,75 +133,85 @@ namespace RailwayIDCardMaker.Services
 
             using (var g = Graphics.FromImage(bmp))
             {
-                // Set page unit to pixel for consistent rendering at 300 DPI
-                g.PageUnit = GraphicsUnit.Pixel;
                 SetQuality(g);
                 g.Clear(YELLOW);
-                g.DrawRectangle(new Pen(Color.Black, 3), 2, 2, W - 5, H - 5);
+                g.DrawRectangle(new Pen(Color.Black, 2), 1, 1, W - 3, H - 3);
 
                 var sfCenter = new StringFormat { Alignment = StringAlignment.Center };
-                var sfCenterBoth = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+                var sfCenterBoth = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisCharacter };
 
-                // QR Code size: 2.35cm = 278 pixels at 300 DPI
-                int qrSz = 200;
+                // Spec: QR Code and Blood Group boxes are 2.35cm x 2.5cm = 278 x 295 pixels at 300 DPI
+                // Scale down to fit card width with margins
+                int boxW = 200, boxH = 210;
+                int margin = 25;
+                int topY = 20;
 
-                // === QR CODE (Y = 20) ===
-                g.FillRectangle(Brushes.White, 25, 25, qrSz, qrSz);
-                g.DrawRectangle(new Pen(Color.Black, 2), 25, 25, qrSz, qrSz);
+                // === QR CODE (top left) ===
+                g.FillRectangle(Brushes.White, margin, topY, boxW, boxH);
+                g.DrawRectangle(new Pen(Color.Black, 1), margin, topY, boxW, boxH);
+                using (var f = new Font("Times New Roman", 10))
+                    g.DrawString("QR Code", f, Brushes.Gray, new RectangleF(margin, topY, boxW, boxH), sfCenterBoth);
                 try
                 {
-                    var qr = QRCodeGenerator.GenerateEmployeeQRCode(emp, qrSz - 10);
-                    if (qr != null) { g.DrawImage(qr, 30, 30); qr.Dispose(); }
+                    var qr = QRCodeGenerator.GenerateEmployeeQRCode(emp, boxW - 10);
+                    if (qr != null) { g.DrawImage(qr, margin + 5, topY + 5); qr.Dispose(); }
                 }
                 catch { }
 
-                // === BLOOD GROUP (right, Y = 25) ===
-                int bx = W - 25 - qrSz;
-                g.FillRectangle(Brushes.White, bx, 25, qrSz, qrSz);
-                g.DrawRectangle(new Pen(Color.Black, 2), bx, 25, qrSz, qrSz);
-                using (var f = new Font("Times New Roman", 72, FontStyle.Bold))
-                    g.DrawString(emp.BloodGroup ?? "O+", f, new SolidBrush(RED), new RectangleF(bx, 25, qrSz, qrSz), sfCenterBoth);
+                // === BLOOD GROUP (top right) ===
+                int bx = W - margin - boxW;
+                g.FillRectangle(Brushes.White, bx, topY, boxW, boxH);
+                g.DrawRectangle(new Pen(Color.Black, 1), bx, topY, boxW, boxH);
+                using (var f = new Font("Times New Roman", 48, FontStyle.Bold))
+                    g.DrawString(emp.BloodGroup ?? "B+", f, new SolidBrush(RED), new RectangleF(bx, topY, boxW, boxH), sfCenterBoth);
 
-                // === DEPARTMENT (Y = 250) ===
-                // Department box: 4.95cm = 585 pixels at 300 DPI
-                int dW = W - 50;
-                g.FillRectangle(Brushes.White, 25, 250, dW, 70);
-                g.DrawRectangle(new Pen(Color.Black, 3), 25, 250, dW, 70);
-                using (var f = new Font("Times New Roman", 28, FontStyle.Bold))
-                    g.DrawString((emp.Department ?? "DEPARTMENT").ToUpper(), f, Brushes.Black, new RectangleF(25, 250, dW, 70), sfCenterBoth);
+                // === DEPARTMENT BOX - Spec: 4.95cm x 1.5cm = 585 x 177 pixels ===
+                // Scale to fit: use full width minus margins
+                int deptY = topY + boxH + 15;
+                int deptW = W - 2 * margin;
+                int deptH = 60;
+                g.FillRectangle(Brushes.White, margin, deptY, deptW, deptH);
+                g.DrawRectangle(new Pen(Color.Black, 2), margin, deptY, deptW, deptH);
+                using (var f = new Font("Times New Roman", 18, FontStyle.Bold))
+                    g.DrawString((emp.Department ?? "DEPARTMENT").ToUpper(), f, Brushes.Black, new RectangleF(margin, deptY, deptW, deptH), sfCenterBoth);
 
-                // === DESIGNATION (Y = 350) ===
-                using (var f = new Font("Times New Roman", 22, FontStyle.Bold))
-                    g.DrawString((emp.Designation ?? "DESIGNATION").ToUpper(), f, Brushes.Black, W / 2, 350, sfCenter);
+                // === DESIGNATION - Font 18 ===
+                int desigY = deptY + deptH + 20;
+                using (var f = new Font("Times New Roman", 14, FontStyle.Bold))
+                    g.DrawString((emp.Designation ?? "DESIGNATION").ToUpper(), f, Brushes.Black, W / 2, desigY, sfCenter);
 
-                // === MOBILE (Y = 410) ===
+                // === MOBILE NUMBER - Font 48 (largest per spec) ===
+                int mobileY = desigY + 35;
                 using (var f = new Font("Times New Roman", 36, FontStyle.Bold))
-                    g.DrawString(emp.MobileNumber ?? "9999999999", f, Brushes.Black, W / 2, 410, sfCenter);
+                    g.DrawString(emp.MobileNumber ?? "9989999999", f, Brushes.Black, W / 2, mobileY, sfCenter);
 
-                // === AADHAAR (Y = 480) ===
-                using (var f = new Font("Times New Roman", 22))
-                    g.DrawString(emp.GetMaskedAadhaar() ?? "XXXX-XXXX-1234", f, Brushes.Black, W / 2, 480, sfCenter);
+                // === AADHAAR (masked) - Font 14 ===
+                int aadhaarY = mobileY + 55;
+                using (var f = new Font("Times New Roman", 12))
+                    g.DrawString(emp.GetMaskedAadhaar() ?? "XXXX-XXXX-4545", f, Brushes.Black, W / 2, aadhaarY, sfCenter);
 
-                // === DATE OF ISSUE (Y = 540) ===
-                using (var f = new Font("Times New Roman", 18))
+                // === DATE OF ISSUE - Font 8 ===
+                int doiY = aadhaarY + 30;
+                using (var f = new Font("Times New Roman", 10))
                 {
-                    string doi = emp.DateOfIssue.HasValue ? "Date of Issue: " + emp.DateOfIssue.Value.ToString("dd-MM-yyyy") : "";
-                    g.DrawString(doi, f, Brushes.Black, W / 2, 540, sfCenter);
+                    string doi = emp.DateOfIssue.HasValue ? "Date of Issue: " + emp.DateOfIssue.Value.ToString("dd-MM-yyyy") : "Date of Issue:";
+                    g.DrawString(doi, f, Brushes.Black, W / 2, doiY, sfCenter);
                 }
 
-                // === LINE (Y = 600) ===
-                g.DrawLine(new Pen(Color.Goldenrod, 3), 80, 600, W - 80, 600);
+                // === SEPARATOR LINE ===
+                int lineY = doiY + 35;
+                g.DrawLine(new Pen(Color.Goldenrod, 2), 60, lineY, W - 60, lineY);
 
-                // === INSTRUCTION (Y = 640) ===
-                using (var f = new Font("Times New Roman", 20, FontStyle.Bold))
-                    g.DrawString("Instruction", f, new SolidBrush(RED), W / 2, 640, sfCenter);
+                // === INSTRUCTION HEADER - Font 8 Bold ===
+                int instrY = lineY + 15;
+                using (var f = new Font("Times New Roman", 10, FontStyle.Bold))
+                    g.DrawString("Instruction", f, new SolidBrush(RED), W / 2, instrY, sfCenter);
 
-                // === INSTRUCTION TEXT (Y = 700, 760, 820) ===
-                using (var f = new Font("Times New Roman", 14))
+                // === INSTRUCTION TEXT - Font 6 ===
+                using (var f = new Font("Times New Roman", 8))
                 {
-                    g.DrawString("Please surrender to issuing Authority on", f, Brushes.Black, W / 2, 700, sfCenter);
-                    g.DrawString("transfer/promotion/completion/termination", f, Brushes.Black, W / 2, 750, sfCenter);
-                    g.DrawString("of Railway service.", f, Brushes.Black, W / 2, 800, sfCenter);
+                    g.DrawString("Please surrender to issuing authority on transfer/", f, Brushes.Black, W / 2, instrY + 22, sfCenter);
+                    g.DrawString("promotion/completion/termination of Railway service.", f, Brushes.Black, W / 2, instrY + 38, sfCenter);
                 }
             }
             return bmp;
