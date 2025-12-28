@@ -372,7 +372,7 @@ namespace RailwayIDCardMaker.Forms
             // 
             // cmbDepartment
             // 
-            this.cmbDepartment.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.cmbDepartment.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDown;
             this.cmbDepartment.Font = new System.Drawing.Font("Segoe UI", 9F);
             this.cmbDepartment.Location = new System.Drawing.Point(395, 22);
             this.cmbDepartment.Name = "cmbDepartment";

@@ -32,7 +32,7 @@ namespace RailwayIDCardMaker.Forms
         {
             LoadComboBoxes();
             _isFormLoaded = true;
-            
+
             // If there's a pending employee to load, load it now
             if (_pendingEmployee != null)
             {
@@ -102,10 +102,10 @@ namespace RailwayIDCardMaker.Forms
                 _pendingEmployee = employee;
                 return;
             }
-            
+
             LoadEmployeeInternal(employee);
         }
-        
+
         private void LoadEmployeeInternal(Employee employee)
         {
             _currentEmployee = employee;
@@ -166,7 +166,7 @@ namespace RailwayIDCardMaker.Forms
                 txtName.Text = _currentEmployee.Name ?? "";
                 txtFatherName.Text = _currentEmployee.FatherName ?? "";
 
-                if (_currentEmployee.DateOfBirth.HasValue && _currentEmployee.DateOfBirth.Value > DateTime.MinValue)
+                if (_currentEmployee.DateOfBirth.HasValue && _currentEmployee.DateOfBirth.Value > dtpDateOfBirth.MinDate && _currentEmployee.DateOfBirth.Value <= dtpDateOfBirth.MaxDate)
                     dtpDateOfBirth.Value = _currentEmployee.DateOfBirth.Value;
 
                 // For comboboxes, set Text directly
@@ -203,14 +203,17 @@ namespace RailwayIDCardMaker.Forms
                 txtUnit.Text = _currentEmployee.UnitCode ?? "";
                 txtPFNumber.Text = _currentEmployee.PFNumber ?? "";
 
-                // Dates
-                if (_currentEmployee.DateOfJoining.HasValue && _currentEmployee.DateOfJoining.Value > DateTime.MinValue)
+                // Dates - safely set check bounds
+                if (_currentEmployee.DateOfJoining.HasValue && _currentEmployee.DateOfJoining.Value > dtpDateOfJoining.MinDate)
                     dtpDateOfJoining.Value = _currentEmployee.DateOfJoining.Value;
-                if (_currentEmployee.DateOfRetirement.HasValue && _currentEmployee.DateOfRetirement.Value > DateTime.MinValue)
+
+                if (_currentEmployee.DateOfRetirement.HasValue && _currentEmployee.DateOfRetirement.Value > dtpDateOfRetirement.MinDate)
                     dtpDateOfRetirement.Value = _currentEmployee.DateOfRetirement.Value;
-                if (_currentEmployee.DateOfIssue.HasValue && _currentEmployee.DateOfIssue.Value > DateTime.MinValue)
+
+                if (_currentEmployee.DateOfIssue.HasValue && _currentEmployee.DateOfIssue.Value > dtpDateOfIssue.MinDate)
                     dtpDateOfIssue.Value = _currentEmployee.DateOfIssue.Value;
-                if (_currentEmployee.ValidityDate.HasValue && _currentEmployee.ValidityDate.Value > DateTime.MinValue)
+
+                if (_currentEmployee.ValidityDate.HasValue && _currentEmployee.ValidityDate.Value > dtpValidityDate.MinDate)
                     dtpValidityDate.Value = _currentEmployee.ValidityDate.Value;
 
                 // ID Card Information
@@ -222,14 +225,18 @@ namespace RailwayIDCardMaker.Forms
                 // Load photo
                 if (!string.IsNullOrEmpty(_currentEmployee.PhotoPath) && File.Exists(_currentEmployee.PhotoPath))
                 {
-                    picPhoto.Image = ImageService.LoadImage(_currentEmployee.PhotoPath);
+                    try { picPhoto.Image = ImageService.LoadImage(_currentEmployee.PhotoPath); } catch { }
                 }
 
                 // Load signature
                 if (!string.IsNullOrEmpty(_currentEmployee.SignaturePath) && File.Exists(_currentEmployee.SignaturePath))
                 {
-                    picSignature.Image = ImageService.LoadImage(_currentEmployee.SignaturePath);
+                    try { picSignature.Image = ImageService.LoadImage(_currentEmployee.SignaturePath); } catch { }
                 }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error displaying data: {ex.Message}", "Data Load Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
