@@ -242,11 +242,14 @@ namespace RailwayIDCardMaker.Utils
         }
 
         /// <summary>
-        /// Get application data directory
+        /// Get application data directory (in Documents folder)
         /// </summary>
         public static string GetAppDataDirectory()
         {
-            string appPath = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
+            // Use Documents folder for easier access
+            string documentsPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+            string appPath = Path.Combine(documentsPath, "RailwayIDCardMaker");
+            EnsureDirectoryExists(appPath);
             return appPath;
         }
 
